@@ -24,10 +24,27 @@ List conversations from sidebar.
 python scripts/list_chats.py [--limit N] [--json]
 ```
 
+### new_chat
+
+Start a new conversation.
+
+```bash
+python scripts/new_chat.py
+```
+
+### open_chat
+
+Open a chat by fuzzy matching title.
+
+```bash
+python scripts/open_chat.py "猫"           # fuzzy match
+python scripts/open_chat.py "猫与Tom" --exact  # exact match
+```
+
 ## Exploration Notes
 
 ### Sidebar Structure
 
-- **Your chats** section contains chat links
-- Each chat link has name pattern: `{title} Open conversation options`
-- Use `nodriver_kit.tools.snapshot` to get all elements, filter by role='link'
+- **New chat**: link with name `'New chat Control Shift O'`
+- **Your chats**: links with pattern `{title} Open conversation options`
+- Use `tab.find(title, best_match=True)` to click chat
