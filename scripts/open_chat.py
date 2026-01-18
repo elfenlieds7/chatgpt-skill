@@ -8,9 +8,16 @@ Usage:
 
 import argparse
 import asyncio
+import time
 from pathlib import Path
 
-import nodriver as uc
+from nodriver_kit.core import (
+    launch_chrome,
+    connect_browser,
+    get_active_tab,
+    get_available_port,
+)
+from nodriver_kit.tools import goto, snapshot, click
 
 PROFILE_DIR = Path.home() / ".nodriver-kit" / "profiles" / "chatgpt"
 
@@ -25,55 +32,60 @@ async def open_chat(query: str, exact: bool = False) -> dict:
     Returns:
         {"success": bool, "title": str or None, "error": str or None}
     """
-    browser = await uc.start(
-        headless=False,
-        user_data_dir=str(PROFILE_DIR)
-    )
-    tab = await browser.get("https://chatgpt.com")
-    await tab.sleep(3)
+    # Start Chrome with saved profile
+    port = get_available_port()
+    process = launch_chrome(port=port, user_data_dir=str(PROFILE_DIR))
 
-    from nodriver_kit.tools import snapshot
-    elements = await snapshot(tab)
+    # Wait for Chrome to be ready
+    time.sleep(2)
 
-    # Find matching chat
-    matched_chat = None
-    matched_title = None
+    try:
+        browser = await connect_browser(port=port)
+        tab = await get_active_tab(browser)
 
-    for el in elements:
-        if el.get("role") == "link":
-            name = el.get("name", "")
-            if "Open conversation options" in name:
-                title = name.replace(" Open conversation options", "")
+        # Navigate to ChatGPT
+        await goto(tab, "https://chatgpt.com")
+        await asyncio.sleep(3)
 
-                if exact:
-                    if query == title:
-                        matched_chat = el
-                        matched_title = title
-                        break
-                else:
-                    # Fuzzy match: query is substring of title (case-insensitive)
-                    if query.lower() in title.lower():
-                        matched_chat = el
-                        matched_title = title
-                        break
+        # Get accessibility tree to find chats
+        elements = await snapshot(tab)
 
-    if not matched_chat:
-        browser.stop()
-        return {"success": False, "title": None, "error": f"No chat matching '{query}'"}
+        # Find matching chat
+        matched_title = None
 
-    # Click the chat link using ref
-    ref = matched_chat.get("ref")
-    if ref:
-        # Find element by text (the title part)
-        chat_link = await tab.find(matched_title, best_match=True)
-        if chat_link:
-            await chat_link.click()
-            await tab.sleep(2)
-            browser.stop()
-            return {"success": True, "title": matched_title, "error": None}
+        for el in elements:
+            if el.get("role") == "link":
+                name = el.get("name", "")
+                if "Open conversation options" in name:
+                    title = name.replace(" Open conversation options", "")
 
-    browser.stop()
-    return {"success": False, "title": matched_title, "error": "Could not click chat"}
+                    if exact:
+                        if query == title:
+                            matched_title = title
+                            break
+                    else:
+                        # Fuzzy match: query is substring of title (case-insensitive)
+                        if query.lower() in title.lower():
+                            matched_title = title
+                            break
+
+        if not matched_title:
+            return {"success": False, "title": None, "error": f"No chat matching '{query}'"}
+
+        # Click the chat using CSS selector with href pattern
+        # First get all chat links to find the href for matching title
+        chat_links = await tab.select_all('nav a[href^="/c/"]')
+        for link in chat_links:
+            text = link.text_all or ""
+            if matched_title in text:
+                await link.click()
+                await asyncio.sleep(2)
+                return {"success": True, "title": matched_title, "error": None}
+
+        return {"success": False, "title": matched_title, "error": "Could not click chat"}
+
+    finally:
+        process.terminate()
 
 
 async def main():

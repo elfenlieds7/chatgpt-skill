@@ -43,8 +43,15 @@ python scripts/open_chat.py "猫与Tom" --exact  # exact match
 
 ## Exploration Notes
 
+### Selectors
+
+| Element | Selector | Note |
+|---------|----------|------|
+| New chat button | `a[data-testid="create-new-chat-button"]` | Stable |
+| Sidebar chats | Accessibility name: `{title} Open conversation options` | Use snapshot |
+
 ### Sidebar Structure
 
-- **New chat**: link with name `'New chat Control Shift O'`
-- **Your chats**: links with pattern `{title} Open conversation options`
-- Use `tab.find(title, best_match=True)` to click chat
+- **New chat button**: Use CSS selector `data-testid`, not text search
+- **Your chats**: links with accessibility name pattern `{title} Open conversation options`
+- Use `snapshot()` to list chats, filter by accessibility name

@@ -11,9 +11,16 @@ Example:
 import argparse
 import asyncio
 import json
+import time
 from pathlib import Path
 
-import nodriver as uc
+from nodriver_kit.core import (
+    launch_chrome,
+    connect_browser,
+    get_active_tab,
+    get_available_port,
+)
+from nodriver_kit.tools import goto, snapshot
 
 PROFILE_DIR = Path.home() / ".nodriver-kit" / "profiles" / "chatgpt"
 
@@ -27,31 +34,41 @@ async def list_chats(limit: int = 20) -> list[dict]:
     Returns:
         List of {"title": str, "ref": str} dicts
     """
-    browser = await uc.start(
-        headless=False,
-        user_data_dir=str(PROFILE_DIR)
-    )
-    tab = await browser.get("https://chatgpt.com")
-    await tab.sleep(3)
+    # Start Chrome with saved profile
+    port = get_available_port()
+    process = launch_chrome(port=port, user_data_dir=str(PROFILE_DIR))
 
-    from nodriver_kit.tools import snapshot
-    elements = await snapshot(tab)
+    # Wait for Chrome to be ready
+    time.sleep(2)
 
-    chats = []
-    for el in elements:
-        if el.get("role") == "link":
-            name = el.get("name", "")
-            if "Open conversation options" in name:
-                title = name.replace(" Open conversation options", "")
-                chats.append({
-                    "title": title,
-                    "ref": el.get("ref")
-                })
-                if len(chats) >= limit:
-                    break
+    try:
+        browser = await connect_browser(port=port)
+        tab = await get_active_tab(browser)
 
-    browser.stop()
-    return chats
+        # Navigate to ChatGPT
+        await goto(tab, "https://chatgpt.com")
+        await asyncio.sleep(3)
+
+        # Get accessibility tree snapshot
+        elements = await snapshot(tab)
+
+        chats = []
+        for el in elements:
+            if el.get("role") == "link":
+                name = el.get("name", "")
+                if "Open conversation options" in name:
+                    title = name.replace(" Open conversation options", "")
+                    chats.append({
+                        "title": title,
+                        "ref": el.get("ref")
+                    })
+                    if len(chats) >= limit:
+                        break
+
+        return chats
+
+    finally:
+        process.terminate()
 
 
 async def main():
