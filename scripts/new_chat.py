@@ -3,73 +3,61 @@
 
 Usage:
     python scripts/new_chat.py
+    python scripts/new_chat.py --port 9222  # use existing browser
 """
 
+import argparse
 import asyncio
-import time
-from pathlib import Path
 
-from nodriver_kit.core import (
-    launch_chrome,
-    connect_browser,
-    get_active_tab,
-    get_available_port,
-)
-from nodriver_kit.tools import goto, click
-
-PROFILE_DIR = Path.home() / ".nodriver-kit" / "profiles" / "chatgpt"
+from nodriver_kit.core import connect_browser, get_active_tab
+from nodriver_kit.tools import browser_start, ax_tree, ax_select
 
 
-async def new_chat() -> dict:
+async def new_chat(port: int = None) -> bool:
     """Start a new chat.
 
+    Args:
+        port: If provided, connect to existing browser. Otherwise start new one.
+
     Returns:
-        {"success": bool, "url": str or None, "chat_id": str or None}
+        True if successful
     """
-    # Start Chrome with saved profile (includes session-restore suppression)
-    port = get_available_port()
-    process = launch_chrome(port=port, user_data_dir=str(PROFILE_DIR))
+    # Start or connect to browser
+    if port is None:
+        result = browser_start(url="https://chatgpt.com")
+        if "error" in result:
+            print(f"Failed to start browser: {result['error']}")
+            return False
+        port = result["port"]
+        print(f"Started browser on port {port}")
 
-    # Wait for Chrome to be ready
-    time.sleep(2)
+    browser = await connect_browser(port=port)
+    tab = await get_active_tab(browser)
+    await tab.sleep(2)
 
-    try:
-        browser = await connect_browser(port=port)
-        tab = await get_active_tab(browser)
+    # Find and click "New chat" using accessibility tree
+    tree = await ax_tree(tab, interactable_only=True)
+    for el in tree:
+        name = el.get("name", "").lower()
+        if "new chat" in name:
+            # Use node_id directly for stable click (ref may change if page updates)
+            node_id = el.get("_nodeId")
+            result = await ax_select(tab, node_id=int(node_id))
+            if result.get("clicked"):
+                print("New chat started")
+                return True
 
-        # Navigate to ChatGPT
-        await goto(tab, "https://chatgpt.com")
-        await asyncio.sleep(2)
-
-        # Click "New chat" button using stable data-testid selector
-        result = await click(tab, selector='a[data-testid="create-new-chat-button"]')
-        if result.get("error"):
-            return {"success": False, "url": None, "chat_id": None}
-
-        # Wait for URL to change to /c/{chat_id}
-        for _ in range(10):
-            await asyncio.sleep(0.5)
-            url = tab.target.url
-            if "/c/" in url:
-                chat_id = url.split("/c/")[-1].split("?")[0]
-                return {"success": True, "url": url, "chat_id": chat_id}
-
-        # URL didn't change to chat format, but new chat may still work
-        return {"success": True, "url": tab.target.url, "chat_id": None}
-
-    finally:
-        process.terminate()
+    print("Could not find New chat button")
+    return False
 
 
 async def main():
-    result = await new_chat()
-    if result["success"]:
-        print(f"URL: {result['url']}")
-        if result["chat_id"]:
-            print(f"Chat ID: {result['chat_id']}")
-    else:
-        print("Failed to start new chat")
-        exit(1)
+    parser = argparse.ArgumentParser(description="Start a new ChatGPT conversation")
+    parser.add_argument("--port", "-p", type=int, help="Connect to existing browser on this port")
+    args = parser.parse_args()
+
+    success = await new_chat(port=args.port)
+    exit(0 if success else 1)
 
 
 if __name__ == "__main__":
