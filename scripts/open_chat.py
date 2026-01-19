@@ -4,97 +4,68 @@
 Usage:
     python scripts/open_chat.py "猫"
     python scripts/open_chat.py "Tom" --exact
+    python scripts/open_chat.py "猫" --port 9222  # use existing browser
 """
 
 import argparse
 import asyncio
-import time
-from pathlib import Path
 
-from nodriver_kit.core import (
-    launch_chrome,
-    connect_browser,
-    get_active_tab,
-    get_available_port,
-)
-from nodriver_kit.tools import goto, snapshot, click
-
-PROFILE_DIR = Path.home() / ".nodriver-kit" / "profiles" / "chatgpt"
+from nodriver_kit.core import connect_browser, get_active_tab
+from nodriver_kit.tools import browser_start, ax_tree, ax_select
 
 
-async def open_chat(query: str, exact: bool = False) -> dict:
+async def open_chat(query: str, port: int = None, exact: bool = False) -> dict:
     """Open a chat by matching title.
 
     Args:
         query: Search string to match against chat titles
+        port: If provided, connect to existing browser
         exact: If True, require exact match; otherwise fuzzy match
 
     Returns:
         {"success": bool, "title": str or None, "error": str or None}
     """
-    # Start Chrome with saved profile
-    port = get_available_port()
-    process = launch_chrome(port=port, user_data_dir=str(PROFILE_DIR))
+    if port is None:
+        result = browser_start(url="https://chatgpt.com")
+        if "error" in result:
+            return {"success": False, "title": None, "error": result["error"]}
+        port = result["port"]
 
-    # Wait for Chrome to be ready
-    time.sleep(2)
+    browser = await connect_browser(port=port)
+    tab = await get_active_tab(browser)
+    await tab.sleep(2)
 
-    try:
-        browser = await connect_browser(port=port)
-        tab = await get_active_tab(browser)
+    # Get accessibility tree
+    tree = await ax_tree(tab, interactable_only=True)
 
-        # Navigate to ChatGPT
-        await goto(tab, "https://chatgpt.com")
-        await asyncio.sleep(3)
+    # Find matching chat
+    for el in tree:
+        if el.get("role") == "link":
+            name = el.get("name", "")
+            if "Open conversation options" in name:
+                title = name.replace(" Open conversation options", "")
 
-        # Get accessibility tree to find chats
-        elements = await snapshot(tab)
-
-        # Find matching chat
-        matched_title = None
-
-        for el in elements:
-            if el.get("role") == "link":
-                name = el.get("name", "")
-                if "Open conversation options" in name:
-                    title = name.replace(" Open conversation options", "")
-
-                    if exact:
-                        if query == title:
-                            matched_title = title
-                            break
+                matched = (query == title) if exact else (query.lower() in title.lower())
+                if matched:
+                    # Click using node_id for stability
+                    node_id = el.get("_nodeId")
+                    result = await ax_select(tab, node_id=int(node_id))
+                    if result.get("clicked"):
+                        return {"success": True, "title": title, "error": None}
                     else:
-                        # Fuzzy match: query is substring of title (case-insensitive)
-                        if query.lower() in title.lower():
-                            matched_title = title
-                            break
+                        return {"success": False, "title": title, "error": "Click failed"}
 
-        if not matched_title:
-            return {"success": False, "title": None, "error": f"No chat matching '{query}'"}
-
-        # Click the chat using CSS selector with href pattern
-        # First get all chat links to find the href for matching title
-        chat_links = await tab.select_all('nav a[href^="/c/"]')
-        for link in chat_links:
-            text = link.text_all or ""
-            if matched_title in text:
-                await link.click()
-                await asyncio.sleep(2)
-                return {"success": True, "title": matched_title, "error": None}
-
-        return {"success": False, "title": matched_title, "error": "Could not click chat"}
-
-    finally:
-        process.terminate()
+    return {"success": False, "title": None, "error": f"No chat matching '{query}'"}
 
 
 async def main():
     parser = argparse.ArgumentParser(description="Open ChatGPT chat by title")
     parser.add_argument("query", help="Search string to match chat title")
+    parser.add_argument("--port", "-p", type=int, help="Connect to existing browser")
     parser.add_argument("--exact", action="store_true", help="Require exact match")
     args = parser.parse_args()
 
-    result = await open_chat(args.query, args.exact)
+    result = await open_chat(args.query, port=args.port, exact=args.exact)
 
     if result["success"]:
         print(f"Opened: {result['title']}")

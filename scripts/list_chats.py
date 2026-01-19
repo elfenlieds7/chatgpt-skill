@@ -3,81 +3,65 @@
 
 Usage:
     python scripts/list_chats.py [--limit N]
-
-Example:
-    python scripts/list_chats.py --limit 10
+    python scripts/list_chats.py --port 9222  # use existing browser
 """
 
 import argparse
 import asyncio
 import json
-import time
-from pathlib import Path
 
-from nodriver_kit.core import (
-    launch_chrome,
-    connect_browser,
-    get_active_tab,
-    get_available_port,
-)
-from nodriver_kit.tools import goto, snapshot
-
-PROFILE_DIR = Path.home() / ".nodriver-kit" / "profiles" / "chatgpt"
+from nodriver_kit.core import connect_browser, get_active_tab
+from nodriver_kit.tools import browser_start, ax_tree
 
 
-async def list_chats(limit: int = 20) -> list[dict]:
+async def list_chats(port: int = None, limit: int = 20) -> list[dict]:
     """List recent chats from sidebar.
 
     Args:
+        port: If provided, connect to existing browser
         limit: Maximum number of chats to return
 
     Returns:
-        List of {"title": str, "ref": str} dicts
+        List of {"title": str, "node_id": int} dicts
     """
-    # Start Chrome with saved profile
-    port = get_available_port()
-    process = launch_chrome(port=port, user_data_dir=str(PROFILE_DIR))
+    if port is None:
+        result = browser_start(url="https://chatgpt.com")
+        if "error" in result:
+            return []
+        port = result["port"]
 
-    # Wait for Chrome to be ready
-    time.sleep(2)
+    browser = await connect_browser(port=port)
+    tab = await get_active_tab(browser)
+    await tab.sleep(2)
 
-    try:
-        browser = await connect_browser(port=port)
-        tab = await get_active_tab(browser)
+    # Get accessibility tree
+    tree = await ax_tree(tab, interactable_only=True)
 
-        # Navigate to ChatGPT
-        await goto(tab, "https://chatgpt.com")
-        await asyncio.sleep(3)
+    chats = []
+    for el in tree:
+        if el.get("role") == "link":
+            name = el.get("name", "")
+            # Chat links have "Open conversation options" suffix
+            if "Open conversation options" in name:
+                title = name.replace(" Open conversation options", "")
+                chats.append({
+                    "title": title,
+                    "node_id": int(el.get("_nodeId"))
+                })
+                if len(chats) >= limit:
+                    break
 
-        # Get accessibility tree snapshot
-        elements = await snapshot(tab)
-
-        chats = []
-        for el in elements:
-            if el.get("role") == "link":
-                name = el.get("name", "")
-                if "Open conversation options" in name:
-                    title = name.replace(" Open conversation options", "")
-                    chats.append({
-                        "title": title,
-                        "ref": el.get("ref")
-                    })
-                    if len(chats) >= limit:
-                        break
-
-        return chats
-
-    finally:
-        process.terminate()
+    return chats
 
 
 async def main():
     parser = argparse.ArgumentParser(description="List ChatGPT chats")
+    parser.add_argument("--port", "-p", type=int, help="Connect to existing browser")
     parser.add_argument("--limit", "-n", type=int, default=20, help="Max chats to list")
     parser.add_argument("--json", action="store_true", help="Output as JSON")
     args = parser.parse_args()
 
-    chats = await list_chats(args.limit)
+    chats = await list_chats(port=args.port, limit=args.limit)
 
     if args.json:
         print(json.dumps(chats, ensure_ascii=False, indent=2))
