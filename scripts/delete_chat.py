@@ -10,7 +10,7 @@ import argparse
 import asyncio
 import json
 
-from nodriver import cdp
+from nodriver_kit import cdp
 from nodriver_kit.core import connect_browser, get_active_tab
 from nodriver_kit.tools import browser_start, ax_tree, ax_select
 
