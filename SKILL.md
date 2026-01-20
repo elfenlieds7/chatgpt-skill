@@ -1,57 +1,54 @@
 ---
-name: chatgpt-skill
-description: Browser automation for ChatGPT. Use when automating ChatGPT interactions: listing chats, sending messages, creating new conversations, etc.
+name: chatgpt
+description: "Browser automation for ChatGPT. Use when user wants to: (1) list/search ChatGPT conversations, (2) send messages to ChatGPT, (3) create/open/delete chats, (4) download chat history."
 ---
 
 # ChatGPT Skill
 
 Browser automation for ChatGPT using nodriver-kit.
 
-## Prerequisites
+## Setup (One-Time)
 
-Login first to save session:
 ```bash
 python -m nodriver_kit.tools.login_interactive --url "https://chatgpt.com" --profile chatgpt
 ```
 
-## Scripts
-
-### list_chats
-
-List conversations from sidebar.
+## Send Message
 
 ```bash
-python scripts/list_chats.py [--limit N] [--json]
+python scripts/send_message.py "your message"
+python scripts/send_message.py "your message" --no-wait  # don't wait for response
 ```
 
-### new_chat
+## List Chats
 
-Start a new conversation.
+```bash
+python scripts/list_chats.py
+python scripts/list_chats.py --limit 20 --json
+```
+
+## Open Chat
+
+```bash
+python scripts/open_chat.py "猫"              # fuzzy match
+python scripts/open_chat.py "猫与Tom" --exact  # exact match
+```
+
+## New Chat
 
 ```bash
 python scripts/new_chat.py
 ```
 
-### open_chat
-
-Open a chat by fuzzy matching title.
+## Delete Chat
 
 ```bash
-python scripts/open_chat.py "猫"           # fuzzy match
-python scripts/open_chat.py "猫与Tom" --exact  # exact match
+python scripts/delete_chat.py  # delete current chat
 ```
 
-## Exploration Notes
+## Download Chat
 
-### Selectors
-
-| Element | Selector | Note |
-|---------|----------|------|
-| New chat button | `a[data-testid="create-new-chat-button"]` | Stable |
-| Sidebar chats | Accessibility name: `{title} Open conversation options` | Use snapshot |
-
-### Sidebar Structure
-
-- **New chat button**: Use CSS selector `data-testid`, not text search
-- **Your chats**: links with accessibility name pattern `{title} Open conversation options`
-- Use `snapshot()` to list chats, filter by accessibility name
+```bash
+python scripts/download_chat.py              # download current chat
+python scripts/download_chat.py --json       # JSON format
+```
