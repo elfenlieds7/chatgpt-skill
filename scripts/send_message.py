@@ -11,8 +11,8 @@ import argparse
 import asyncio
 import json
 
-from nodriver_kit.core import connect_browser, get_active_tab
-from nodriver_kit.tools import browser_start
+from ai_dev_browser.core import connect_browser, get_active_tab
+from ai_dev_browser.tools import browser_start
 
 
 async def send_message(message: str, port: int = None, wait_response: bool = True) -> dict:

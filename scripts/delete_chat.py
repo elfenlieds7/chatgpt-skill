@@ -10,9 +10,9 @@ import argparse
 import asyncio
 import json
 
-from nodriver_kit import cdp
-from nodriver_kit.core import connect_browser, get_active_tab
-from nodriver_kit.tools import browser_start, ax_tree, ax_select
+from ai_dev_browser import cdp
+from ai_dev_browser.core import connect_browser, get_active_tab
+from ai_dev_browser.tools import browser_start, ax_tree, ax_select
 
 
 async def delete_chat(port: int = None) -> dict:

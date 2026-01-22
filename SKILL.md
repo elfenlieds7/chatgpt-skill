@@ -5,12 +5,12 @@ description: "Browser automation for ChatGPT. Use when user wants to: (1) list/s
 
 # ChatGPT Skill
 
-Browser automation for ChatGPT using nodriver-kit.
+Browser automation for ChatGPT using ai-dev-browser.
 
 ## Setup (One-Time)
 
 ```bash
-python -m nodriver_kit.tools.login_interactive --url "https://chatgpt.com" --profile chatgpt
+python -m ai_dev_browser.tools.login_interactive --url "https://chatgpt.com" --profile chatgpt
 ```
 
 ## Send Message

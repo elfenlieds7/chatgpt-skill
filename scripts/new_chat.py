@@ -9,8 +9,8 @@ Usage:
 import argparse
 import asyncio
 
-from nodriver_kit.core import connect_browser, get_active_tab
-from nodriver_kit.tools import browser_start, ax_tree, ax_select
+from ai_dev_browser.core import connect_browser, get_active_tab
+from ai_dev_browser.tools import browser_start, ax_tree, ax_select
 
 
 async def new_chat(port: int = None) -> bool:
