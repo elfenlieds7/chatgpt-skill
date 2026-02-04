@@ -11,7 +11,7 @@ import argparse
 import asyncio
 
 from ai_dev_browser.core import connect_browser, get_active_tab
-from ai_dev_browser.tools import browser_start, ax_tree, ax_select
+from ai_dev_browser.tools import browser_start, find, click_by_ref
 
 
 async def open_chat(query: str, port: int = None, exact: bool = False) -> dict:
@@ -36,7 +36,7 @@ async def open_chat(query: str, port: int = None, exact: bool = False) -> dict:
     await tab.sleep(2)
 
     # Get accessibility tree
-    tree = await ax_tree(tab, interactable_only=True)
+    tree = await find(tab, interactable_only=True)
 
     # Find matching chat
     for el in tree:
@@ -49,7 +49,7 @@ async def open_chat(query: str, port: int = None, exact: bool = False) -> dict:
                 if matched:
                     # Click using node_id for stability
                     node_id = el.get("_nodeId")
-                    result = await ax_select(tab, node_id=int(node_id))
+                    result = await click_by_ref(tab, node_id=int(node_id))
                     if result.get("clicked"):
                         return {"success": True, "title": title, "error": None}
                     else:

@@ -12,7 +12,7 @@ import asyncio
 import json
 
 from ai_dev_browser.core import connect_browser, get_active_tab
-from ai_dev_browser.tools import browser_start, ax_tree
+from ai_dev_browser.tools import browser_start, find
 
 
 def _extract_chats(tree: list) -> list[dict]:
@@ -53,7 +53,7 @@ async def list_chats(port: int = None, limit: int = 20, all_chats: bool = False)
 
     if not all_chats:
         # Quick mode: just get visible chats
-        tree = await ax_tree(tab, interactable_only=True)
+        tree = await find(tab, interactable_only=True)
         chats = _extract_chats(tree)
         return chats[:limit]
 
@@ -63,7 +63,7 @@ async def list_chats(port: int = None, limit: int = 20, all_chats: bool = False)
     no_new_count = 0
 
     for _ in range(200):  # max 200 scroll attempts
-        tree = await ax_tree(tab, interactable_only=True)
+        tree = await find(tab, interactable_only=True)
         chats = _extract_chats(tree)
 
         new_count = 0

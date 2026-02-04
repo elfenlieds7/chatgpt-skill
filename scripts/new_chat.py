@@ -10,7 +10,7 @@ import argparse
 import asyncio
 
 from ai_dev_browser.core import connect_browser, get_active_tab
-from ai_dev_browser.tools import browser_start, ax_tree, ax_select
+from ai_dev_browser.tools import browser_start, find, click_by_ref
 
 
 async def new_chat(port: int = None) -> bool:
@@ -36,13 +36,13 @@ async def new_chat(port: int = None) -> bool:
     await tab.sleep(2)
 
     # Find and click "New chat" using accessibility tree
-    tree = await ax_tree(tab, interactable_only=True)
+    tree = await find(tab, interactable_only=True)
     for el in tree:
         name = el.get("name", "").lower()
         if "new chat" in name:
             # Use node_id directly for stable click (ref may change if page updates)
             node_id = el.get("_nodeId")
-            result = await ax_select(tab, node_id=int(node_id))
+            result = await click_by_ref(tab, node_id=int(node_id))
             if result.get("clicked"):
                 print("New chat started")
                 return True
