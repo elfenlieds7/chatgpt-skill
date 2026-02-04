@@ -1,6 +1,6 @@
 # chatgpt-skill
 
-ChatGPT browser automation using [ai-dev-browser](https://github.com/elfenlieds7/ai-dev-browser).
+ChatGPT browser automation using [ai-dev-browser](https://github.com/sudoprivacy/ai-dev-browser).
 
 ## Setup
 
